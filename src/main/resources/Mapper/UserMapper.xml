@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="socialplatform.backend.backend.Mapper.UserMapper">
+
+    <resultMap id="BaseResultMap" type="socialplatform.backend.backend.model.User">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="password" property="password"/>
+        <result column="email" property="email"/>
+        <result column="avatar" property="avatar"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="last_password_changed" property="lastPasswordChanged"/>
+        <result column="account_locked_until" property="accountLockedUntil"/>
+        <result column="status" property="status"/>
+        <result column="role_id" property="roleId"/>
+        <result column="login_fail_count" property="loginFailCount"/>
+    </resultMap>
+
+    <resultMap id="UserStatsResultMap" type="java.util.Map">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="email" property="email"/>
+        <result column="avatar" property="avatar"/>
+        <result column="create_time" property="createTime"/>
+        <result column="status" property="status"/>
+        <result column="role_id" property="roleId"/>
+        <result column="article_count" property="articleCount"/>
+        <result column="published_count" property="publishedCount"/>
+        <result column="total_views" property="totalViews"/>
+        <result column="comment_count" property="commentCount"/>
+        <result column="last_activity" property="lastActivity"/>
+    </resultMap>
+
+    <sql id="Where_Condition">
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="roleId != null">
+                AND role_id = #{roleId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (username LIKE CONCAT('%', #{keyword}, '%')
+                OR email LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="startTime != null">
+                AND create_time >= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND create_time &lt;= #{endTime}
+            </if>
+            <choose>
+                <when test="includeDeleted != null and includeDeleted == true">
+                </when>
+                <otherwise>
+                    AND status != 0
+                </otherwise>
+            </choose>
+        </where>
+    </sql>
+
+    <insert id="insert" parameterType="User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user (
+            username, password, email, avatar,
+            create_time, update_time, last_password_changed,
+            account_locked_until, status, role_id, login_fail_count
+        ) VALUES (
+                     #{username}, #{password}, #{email}, #{avatar},
+                     NOW(), NOW(),
+                     #{lastPasswordChanged, jdbcType=TIMESTAMP},
+                     #{accountLockedUntil, jdbcType=TIMESTAMP},
+                     COALESCE(#{status}, 1),
+                     COALESCE(#{roleId}, 2),
+                     COALESCE(#{loginFailCount}, 0)
+                 )
+    </insert>
+
+    <select id="selectById" parameterType="Integer" resultMap="BaseResultMap">
+        SELECT
+            id, username, password, email, avatar,
+            create_time, update_time, last_password_changed,
+            account_locked_until, status, role_id, login_fail_count
+        FROM user
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByUsername" parameterType="String" resultMap="BaseResultMap">
+        SELECT
+            id, username, password, email, avatar,
+            create_time, update_time, last_password_changed,
+            account_locked_until, status, role_id, login_fail_count
+        FROM user
+        WHERE username = #{username}
+    </select>
+
+    <select id="selectByEmail" parameterType="String" resultMap="BaseResultMap">
+        SELECT
+            id, username, password, email, avatar,
+            create_time, update_time, last_password_changed,
+            account_locked_until, status, role_id, login_fail_count
+        FROM user
+        WHERE email = #{email}
+    </select>
+
+    <update id="update" parameterType="User">
+        UPDATE user
+        <set>
+            <if test="username != null and username != ''">
+                username = #{username},
+            </if>
+            <if test="password != null and password != ''">
+                password = #{password},
+            </if>
+            <if test="email != null and email != ''">
+                email = #{email},
+            </if>
+            <if test="avatar != null">
+                avatar = #{avatar},
+            </if>
+            update_time = NOW(),
+            <if test="lastPasswordChanged != null">
+                last_password_changed = #{lastPasswordChanged},
+            </if>
+            <if test="accountLockedUntil != null">
+                account_locked_until = #{accountLockedUntil},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="roleId != null">
+                role_id = #{roleId},
+            </if>
+            <if test="loginFailCount != null">
+                login_fail_count = #{loginFailCount},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteById" parameterType="Integer">
+        UPDATE user
+        SET status = 0, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE user
+        SET status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE user
+        SET password = #{password},
+            last_password_changed = NOW(),
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateLoginFailure">
+        UPDATE user
+        SET login_fail_count = #{loginFailCount},
+            account_locked_until = #{accountLockedUntil},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="resetLoginFailure" parameterType="Integer">
+        UPDATE user
+        SET login_fail_count = 0,
+            account_locked_until = NULL,
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateLastPasswordChanged" parameterType="Integer">
+        UPDATE user
+        SET last_password_changed = NOW(),
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT
+            id, username, password, email, avatar,
+            create_time, update_time, last_password_changed,
+            account_locked_until, status, role_id, login_fail_count
+        FROM user
+        WHERE status != 0
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByPage" resultMap="BaseResultMap">
+        SELECT
+        id, username, password, email, avatar,
+        create_time, update_time, last_password_changed,
+        account_locked_until, status, role_id, login_fail_count
+        FROM user
+        WHERE status != 0
+        ORDER BY create_time DESC
+        <if test="offset != null and pageSize != null and pageSize > 0">
+            LIMIT #{offset}, #{pageSize}
+        </if>
+    </select>
+
+    <select id="selectByKeyword" resultMap="BaseResultMap">
+        SELECT
+            id, username, password, email, avatar,
+            create_time, update_time, last_password_changed,
+            account_locked_until, status, role_id, login_fail_count
+        FROM user
+        WHERE (username LIKE CONCAT('%', #{keyword}, '%')
+            OR email LIKE CONCAT('%', #{keyword}, '%'))
+          AND status != 0
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByCondition" parameterType="Map" resultMap="BaseResultMap">
+        SELECT
+        id, username, password, email, avatar,
+        create_time, update_time, last_password_changed,
+        account_locked_until, status, role_id, login_fail_count
+        FROM user
+        <include refid="Where_Condition"/>
+        ORDER BY
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                <choose>
+                    <when test="orderBy == 'username'">username</when>
+                    <when test="orderBy == 'create_time'">create_time</when>
+                    <when test="orderBy == 'status'">status</when>
+                    <otherwise>id</otherwise>
+                </choose>
+                <choose>
+                    <when test="orderDirection == 'asc'">ASC</when>
+                    <otherwise>DESC</otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                create_time DESC
+            </otherwise>
+        </choose>
+        <if test="offset != null and pageSize != null and pageSize > 0">
+            LIMIT #{offset}, #{pageSize}
+        </if>
+    </select>
+
+    <select id="countUsers" resultType="Integer">
+        SELECT COUNT(*)
+        FROM user
+        WHERE status != 0
+    </select>
+
+    <select id="countByCondition" parameterType="Map" resultType="Integer">
+        SELECT COUNT(*)
+        FROM user
+        <include refid="Where_Condition"/>
+    </select>
+
+    <select id="selectByIds" resultMap="BaseResultMap">
+        SELECT
+        id, username, password, email, avatar,
+        create_time, update_time, last_password_changed,
+        account_locked_until, status, role_id, login_fail_count
+        FROM user
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        AND status != 0
+        ORDER BY FIELD(id,
+        <foreach collection="ids" item="id" separator=",">
+            #{id}
+        </foreach>
+        )
+    </select>
+
+    <select id="selectUserWithStats" parameterType="Map" resultMap="UserStatsResultMap">
+        SELECT
+        u.id, u.username, u.email, u.avatar,
+        u.create_time, u.status, u.role_id,
+        COALESCE(a.article_count, 0) as article_count,
+        COALESCE(a.published_count, 0) as published_count,
+        COALESCE(a.total_views, 0) as total_views,
+        COALESCE(c.comment_count, 0) as comment_count,
+        GREATEST(
+        COALESCE(u.update_time, '1970-01-01'),
+        COALESCE(a.last_article_time, '1970-01-01'),
+        COALESCE(c.last_comment_time, '1970-01-01')
+        ) as last_activity
+        FROM user u
+        LEFT JOIN (
+        SELECT
+        user_id,
+        COUNT(*) as article_count,
+        SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as published_count,
+        SUM(view_count) as total_views,
+        MAX(update_time) as last_article_time
+        FROM article
+        GROUP BY user_id
+        ) a ON u.id = a.user_id
+        LEFT JOIN (
+        SELECT
+        user_id,
+        COUNT(*) as comment_count,
+        MAX(update_time) as last_comment_time
+        FROM comment
+        WHERE status = 1
+        GROUP BY user_id
+        ) c ON u.id = c.user_id
+        <include refid="Where_Condition"/>
+        ORDER BY
+        <choose>
+            <when test="orderBy != null and orderBy != ''">
+                <choose>
+                    <when test="orderBy == 'article_count'">article_count</when>
+                    <when test="orderBy == 'published_count'">published_count</when>
+                    <when test="orderBy == 'total_views'">total_views</when>
+                    <when test="orderBy == 'comment_count'">comment_count</when>
+                    <when test="orderBy == 'last_activity'">last_activity</when>
+                    <otherwise>u.create_time</otherwise>
+                </choose>
+                <choose>
+                    <when test="orderDirection == 'asc'">ASC</when>
+                    <otherwise>DESC</otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                u.create_time DESC
+            </otherwise>
+        </choose>
+        <if test="offset != null and pageSize != null and pageSize > 0">
+            LIMIT #{offset}, #{pageSize}
+        </if>
+    </select>
+
+    <update id="updateRole">
+        UPDATE user
+        SET role_id = #{roleId}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="batchUpdateStatus">
+        UPDATE user
+        SET status = #{status}, update_time = NOW()
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <select id="getUserArticleStats" statementType="CALLABLE" parameterType="Integer" resultType="Map">
+        {call get_user_article_attrs(#{id, mode=IN})}
+    </select>
+
+    <select id="getUserInteractionStats" statementType="CALLABLE" parameterType="Integer" resultType="Map">
+        {call get_user_interaction_stats(#{id, mode=IN})}
+    </select>
+
+</mapper>

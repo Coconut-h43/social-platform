@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="socialplatform.backend.backend.Mapper.CommentMapper">
+    <resultMap id="BaseResultMap" type="socialplatform.backend.backend.model.Comment">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="article_id" property="articleId"/>
+        <result column="content" property="content"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <!--基础CRUD -->
+    <insert id="insert" parameterType="socialplatform.backend.backend.model.Comment"
+            keyProperty="id" useGeneratedKeys="true">
+        INSERT INTO personallog.comment(
+            user_id,
+            article_id,
+            content,
+            parent_id,
+            status,
+            create_time,
+            update_time
+        )
+        VALUES (
+                   #{userId},
+                   #{articleId},
+                   #{content},
+                   #{parentId, jdbcType=INTEGER},
+                   #{status, jdbcType=INTEGER},
+                   NOW(),
+                   NOW()
+               )
+    </insert>
+
+    <!-- 逻辑删除：设置status=0 -->
+    <update id="deleteById">
+        UPDATE personallog.comment
+        SET status = 0, update_time = NOW()
+        WHERE id = #{commentId}
+    </update>
+
+    <!-- 物理删除：管理员用 -->
+    <delete id="delete">
+        DELETE FROM personallog.comment
+        WHERE id = #{commentId}
+    </delete>
+
+    <!-- 更新评论 -->
+    <update id="update" parameterType="socialplatform.backend.backend.model.Comment">
+        UPDATE personallog.comment
+        <set>
+            <if test="content != null">content = #{content},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID查询评论 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, content, parent_id,
+            status, create_time, update_time
+        FROM personallog.comment
+        WHERE id = #{commentId} AND status != 0
+    </select>
+
+    <!-- 根据用户ID查询评论 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, content, parent_id,
+            status, create_time, update_time
+        FROM personallog.comment
+        WHERE user_id = #{userId} AND status != 0
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 根据父评论ID查询回复 -->
+    <select id="selectByParentId" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, content, parent_id,
+            status, create_time, update_time
+        FROM personallog.comment
+        WHERE parent_id = #{parentId} AND status != 0
+        ORDER BY create_time ASC
+    </select>
+
+    <!--查询操作-->
+    <!-- 根据文章ID分页查询评论（顶层评论） -->
+    <select id="selectCommentByArticleId" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, content, parent_id,
+            status, create_time, update_time
+        FROM personallog.comment
+        WHERE article_id = #{articleId}
+          AND (parent_id = 0 OR parent_id IS NULL)
+          AND status != 0
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 根据用户ID分页查询评论 -->
+    <select id="selectCommentByUserId" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, content, parent_id,
+            status, create_time, update_time
+        FROM personallog.comment
+        WHERE user_id = #{userId} AND status != 0
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 查询用户收到的评论（他人对其文章或评论的回复） -->
+    <select id="selectCommentReceived" resultMap="BaseResultMap">
+        SELECT
+            c.id, c.user_id, c.article_id, c.content,
+            c.parent_id, c.status, c.create_time, c.update_time
+        FROM personallog.comment c
+        WHERE c.status != 0
+          AND (
+            c.article_id IN (
+                SELECT id FROM personallog.article
+                WHERE user_id = #{userId}
+            )
+                OR
+            c.parent_id IN (
+                SELECT id FROM personallog.comment
+                WHERE user_id = #{userId}
+            )
+            )
+        ORDER BY c.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+    <!-- 查询某评论的所有回复（嵌套展示） -->
+    <select id="selectCommentReplies" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, content, parent_id,
+            status, create_time, update_time
+        FROM personallog.comment
+        WHERE parent_id = #{parentId} AND status != 0
+        ORDER BY create_time ASC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!--评论归属认证-->
+    <!-- 验证评论是否属于某用户 -->
+    <select id="isCommentBelongsToUser" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM personallog.comment
+        WHERE id = #{commentId}
+          AND user_id = #{userId}
+          AND status != 0
+    </select>
+
+    <!-- 验证评论是否属于某文章 -->
+    <select id="isCommentBelongsToArticle" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM personallog.comment
+        WHERE id = #{commentId}
+          AND article_id = #{articleId}
+          AND status != 0
+    </select>
+
+    <!--统计相关操作 -->
+    <!-- 统计文章评论数 -->
+    <select id="countCommentByArticleId" resultType="int">
+        SELECT COUNT(*)
+        FROM personallog.comment
+        WHERE article_id = #{articleId} AND status != 0
+    </select>
+
+    <!-- 统计用户评论数 -->
+    <select id="countCommentByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM personallog.comment
+        WHERE user_id = #{userId} AND status != 0
+    </select>
+
+    <!-- 统计用户收到的评论数 -->
+    <select id="countCommentReceived" resultType="int">
+        SELECT COUNT(*)
+        FROM personallog.comment c
+        WHERE c.status != 0
+          AND (
+            c.article_id IN (
+                SELECT id FROM personallog.article
+                WHERE user_id = #{userId}
+            )
+                OR
+            c.parent_id IN (
+                SELECT id FROM personallog.comment
+                WHERE user_id = #{userId}
+            )
+            )
+          AND c.user_id != #{userId}
+    </select>
+
+    <!-- 统计评论的回复数 -->
+    <select id="countCommentReplies" resultType="int">
+        SELECT COUNT(*)
+        FROM personallog.comment
+        WHERE parent_id = #{parentId} AND status != 0
+    </select>
+
+    <!--管理员禁用评论功能-->
+    <!-- 按关键字搜索评论 -->
+    <select id="selectCommentsByKeyword" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, content, parent_id,
+            status, create_time, update_time
+        FROM personallog.comment
+        WHERE status != 0
+          AND content LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 禁用含敏感词的评论 -->
+    <update id="disableCommentsByKeyword">
+        UPDATE personallog.comment
+        SET status = 0, update_time = NOW()
+        WHERE status != 0
+          AND content LIKE CONCAT('%', #{keyword}, '%')
+    </update>
+
+    <!-- 恢复评论（设置status=1） -->
+    <update id="restoreById">
+        UPDATE personallog.comment
+        SET status = 1, update_time = NOW()
+        WHERE id = #{commentId}
+    </update>
+
+    <!--定位跳转-->
+    <!-- 查询评论位置信息（用于跳转） -->
+    <select id="selectCommentWithLocation" resultMap="BaseResultMap">
+        SELECT
+            c.id, c.user_id, c.article_id, c.content,
+            c.parent_id, c.status, c.create_time, c.update_time,
+            a.title as article_title
+        FROM personallog.comment c
+                 LEFT JOIN personallog.article a ON c.article_id = a.id
+        WHERE c.id = #{commentId} AND c.status != 0
+    </select>
+
+</mapper>

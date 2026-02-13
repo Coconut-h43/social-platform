@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="socialplatform.backend.backend.Mapper.ArticleMapper">
+    <!--基础字段结果映射-->
+    <resultMap id="BaseResultMap" type="socialplatform.backend.backend.model.Article">
+        <id column="id" property="id"/>
+        <result column="category_id" property="categoryId"/>
+        <result column="user_id" property="authorId"/>
+        <result column="title" property="title"/>
+        <result column="summary" property="summary"/>
+        <result column="content" property="content"/>
+        <result column="view_count" property="viewCount"/>
+        <result column="is_top" property="isTop"/>
+        <result column="status" property="status"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="create_time" property="createTime"/>
+
+        <association property="category" javaType="socialplatform.backend.backend.model.Category">
+            <id column="category_id" property="id"/>
+            <result column="category_name" property="name"/>
+        </association>
+        <association property="author" javaType="socialplatform.backend.backend.model.User">
+            <id column="user_id" property="id"/>
+            <result column="username" property="username"/>
+            <result column="avatar" property="avatar"/>
+        </association>
+    </resultMap>
+
+    <!--基础CRUD-->
+    <!--插入操作-->
+    <insert id="insert" parameterType="socialplatform.backend.backend.model.Article" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO personallog.article (
+            title, content, summary, category_id, user_id,
+            view_count, is_top, status
+        ) VALUES (
+                     #{title}, #{content}, #{summary}, #{categoryId}, #{authorId},
+                     #{viewCount}, #{isTop}, #{status}
+                 )
+    </insert>
+
+    <!--删除操作-->
+    <delete id="deleteById">
+        DELETE FROM personallog.article WHERE id=#{id}
+    </delete>
+
+    <!--更新(文章信息、浏览量、置顶、状态)-->
+    <update id="update" parameterType="socialplatform.backend.backend.model.Article">
+        UPDATE personallog.article
+        <set>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="summary != null and summary != ''">summary = #{summary},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="is_top != null">is_top = #{isTop},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = NOW()
+        </set>
+        WHERE id=#{id}
+    </update>
+
+    <!--update 操作-->
+    <update id="updateTopStatus">
+        UPDATE personallog.article
+        SET is_top=#{isTop},
+            update_time=NOW()
+        WHERE id=#{id}
+    </update>
+
+    <!-- 查询操作 -->
+    <select id="selectByCategoryId" resultMap="BaseResultMap">
+        SELECT
+            a.*,
+            c.name as category_name,
+            u.username,
+            u.avatar
+        FROM personallog.article a
+                 LEFT JOIN personallog.category c ON a.category_id = c.id
+                 LEFT JOIN personallog.user u ON a.user_id = u.id
+        WHERE a.category_id = #{categoryId}
+        ORDER BY a.create_time DESC
+    </select>
+
+    <select id="selectByAuthorId" resultMap="BaseResultMap">
+        SELECT
+            a.*,
+            c.name as category_name,
+            u.username,
+            u.avatar
+        FROM personallog.article a
+                 LEFT JOIN personallog.category c ON a.category_id = c.id
+                 LEFT JOIN personallog.user u ON a.user_id = u.id
+        WHERE a.user_id = #{authorId}
+        ORDER BY a.create_time DESC
+    </select>
+
+    <!--查询用户的草稿文章 -->
+    <select id="selectDraftsByAuthorId" resultMap="BaseResultMap">
+        SELECT
+            a.*,
+            c.name as category_name,
+            u.username,
+            u.avatar
+        FROM personallog.article a
+                 LEFT JOIN personallog.category c ON a.category_id = c.id
+                 LEFT JOIN personallog.user u ON a.user_id = u.id
+        WHERE a.user_id = #{authorId} AND a.status = 0
+        ORDER BY a.update_time DESC
+    </select>
+
+    <!--分页查询已发布文章 -->
+    <select id="selectPublishedByAuthorId" resultMap="BaseResultMap">
+        SELECT
+            a.*,
+            c.name as category_name,
+            u.username,
+            u.avatar
+        FROM personallog.article a
+                 LEFT JOIN personallog.category c ON a.category_id = c.id
+                 LEFT JOIN personallog.user u ON a.user_id = u.id
+        WHERE a.status = 1 AND a.user_id = #{authorId}
+        ORDER BY a.create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!--分页查询草稿文章 -->
+    <select id="selectDraftsByAuthorIdPage" resultMap="BaseResultMap">
+        SELECT
+            a.*,
+            c.name as category_name,
+            u.username,
+            u.avatar
+        FROM personallog.article a
+                 LEFT JOIN personallog.category c ON a.category_id = c.id
+                 LEFT JOIN personallog.user u ON a.user_id = u.id
+        WHERE a.user_id = #{authorId} AND a.status = 0
+        ORDER BY a.update_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!--多条件动态查询 -->
+    <select id="selectByCondition" parameterType="map" resultMap="BaseResultMap">
+        SELECT
+        a.*,
+        c.name as category_name,
+        u.username,
+        u.avatar
+        FROM personallog.article a
+        LEFT JOIN personallog.category c ON a.category_id = c.id
+        LEFT JOIN personallog.user u ON a.user_id = u.id
+        WHERE 1=1
+        <if test="title != null and title != ''">
+            AND a.title LIKE CONCAT('%', #{title}, '%')
+        </if>
+        <if test="categoryId != null">
+            AND a.category_id = #{categoryId}
+        </if>
+        <if test="authorId != null">
+            AND a.user_id = #{authorId}
+        </if>
+        <if test="status != null">
+            AND a.status = #{status}
+        </if>
+        <if test="isTop != null">
+            AND a.is_top = #{isTop}
+        </if>
+        <if test="startTime != null">
+            AND a.create_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND a.create_time &lt;= #{endTime}
+        </if>
+        ORDER BY
+        <choose>
+            <when test="orderBy == 'update_time'">a.update_time DESC</when>
+            <when test="orderBy == 'view_count'">a.view_count DESC</when>
+            <otherwise>a.create_time DESC</otherwise>
+        </choose>
+        <if test="offset != null and pageSize != null">
+            LIMIT #{offset}, #{pageSize}
+        </if>
+    </select>
+
+    <!--统计操作 -->
+    <select id="countByCondition" parameterType="map" resultType="int">
+        SELECT COUNT(*) FROM personallog.article
+        WHERE 1=1
+        <if test="title != null and title != ''">
+            AND title LIKE CONCAT('%', #{title}, '%')
+        </if>
+        <if test="categoryId != null">
+            AND category_id = #{categoryId}
+        </if>
+        <if test="authorId != null">
+            AND user_id = #{authorId}
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        <if test="isTop != null">
+            AND is_top = #{isTop}
+        </if>
+        <if test="startTime != null">
+            AND create_time >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND create_time &lt;= #{endTime}
+        </if>
+    </select>
+</mapper>

@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="socialplatform.backend.backend.Mapper.FavoriteMapper">
+    <resultMap id="BaseResultMap" type="socialplatform.backend.backend.model.Favorite">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="article_id" property="articleId"/>
+        <result column="create_time" property="createTime"/>
+
+        <association property="article" javaType="socialplatform.backend.backend.model.Article">
+            <id column="article_detail_id" property="id"/>
+            <result column="article_title" property="title"/>
+            <result column="article_summary" property="summary"/>
+            <result column="article_view_count" property="viewCount"/>
+            <result column="article_create_time" property="createTime"/>
+            <result column="article_status" property="status"/>
+            <result column="article_is_top" property="isTop"/>
+
+            <!-- Article的作者信息 -->
+            <association property="author" javaType="socialplatform.backend.backend.model.model.User">
+                <id column="author_id" property="id"/>
+                <result column="author_name" property="username"/>
+                <result column="author_avatar" property="avatar"/>
+            </association>
+
+        </association>
+    </resultMap>
+
+    <!--基础CRUD -->
+    <insert id="insert" parameterType="socialplatform.backend.backend.model.Favorite" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO favorite(user_id, article_id)
+        VALUES(#{userId}, #{articleId})
+    </insert>
+
+    <delete id="deleteByUserIdAndArticleId">
+        DELETE FROM favorite
+        WHERE user_id = #{userId} AND article_id = #{articleId}
+    </delete>
+
+    <select id="select" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, create_time
+        FROM favorite
+        WHERE id = #{id}
+    </select>
+
+    <!-- 查询用户收藏文章-->
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT
+            id, user_id, article_id, create_time
+        FROM favorite
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectUserFavoritesWithArticleInfo" resultMap="BaseResultMap">
+        SELECT
+        f.id,
+        f.user_id,
+        f.article_id,
+        f.create_time,
+
+        a.id as article_detail_id,
+        a.title as article_title,
+        a.summary as article_summary,
+        a.view_count as article_view_count,
+        a.create_time as article_create_time,
+        a.status as article_status,
+        a.is_top as article_is_top,
+        a.category_id,
+
+        a.user_id as author_id,
+        u.username as author_name,
+        u.avatar as author_avatar
+        FROM favorite f
+        INNER JOIN article a ON f.article_id = a.id
+        INNER JOIN user u ON a.user_id = u.id
+        WHERE f.user_id = #{userId}
+        AND a.status = 1
+        ORDER BY f.create_time DESC
+        <if test="offset != null and pageSize != null">
+            LIMIT #{offset}, #{pageSize}
+        </if>
+    </select>
+
+    <select id="selectByArticleId" resultMap="BaseResultMap">
+        SELECT
+        id, user_id, article_id, create_time
+        FROM favorite
+        WHERE article_id = #{articleId}
+        ORDER BY create_time DESC
+        <if test="offset != null and pageSize != null">
+            LIMIT #{offset}, #{pageSize}
+        </if>
+    </select>
+
+    <!-- 检查是否已收藏-->
+
+    <select id="existsByUserAndArticle" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM favorite
+        WHERE user_id = #{userId} AND article_id = #{articleId}
+    </select>
+
+    <!-- 统计相关 -->
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM favorite f
+                 INNER JOIN article a ON f.article_id = a.id
+        WHERE f.user_id = #{userId} AND a.status = 1
+    </select>
+
+    <select id="countByArticleId" resultType="int">
+        SELECT COUNT(*)
+        FROM favorite
+        WHERE article_id = #{articleId}
+    </select>
+
+    <select id="selectFavoriteStats" resultType="java.util.HashMap">
+        SELECT
+            COUNT(*) as total_favorites,
+            COUNT(DISTINCT user_id) as unique_users,
+            COUNT(DISTINCT article_id) as unique_articles,
+            DATE(create_time) as stat_date,
+            COUNT(*) as daily_count
+        FROM favorite
+        WHERE create_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY DATE(create_time)
+        ORDER BY stat_date DESC
+    </select>
+
+    <select id="selectMostFavoritedArticles" resultType="java.util.HashMap">
+        SELECT
+            a.id as article_id,
+            a.title as article_title,
+            u.username as author_name,
+            c.name as category_name,
+            COUNT(f.id) as favorite_count
+        FROM favorite f
+                 INNER JOIN article a ON f.article_id = a.id
+                 INNER JOIN user u ON a.user_id = u.id
+                 LEFT JOIN category c ON a.category_id = c.id
+        WHERE a.status = 1
+        GROUP BY f.article_id
+        ORDER BY favorite_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectMostActiveUsers" resultType="java.util.HashMap">
+        SELECT
+            u.id as user_id,
+            u.username,
+            COUNT(f.id) as favorite_count,
+            MAX(f.create_time) as last_favorite_time
+        FROM favorite f
+                 INNER JOIN user u ON f.user_id = u.id
+        WHERE u.status = 1
+        GROUP BY f.user_id
+        ORDER BY favorite_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectFavoriteTrend" resultType="java.util.HashMap">
+        SELECT
+            DATE(create_time) as favorite_date,
+            COUNT(*) as favorite_count
+        FROM favorite
+        WHERE create_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        GROUP BY DATE(create_time)
+        ORDER BY favorite_date DESC
+    </select>
+
+    <!-- 批量管理 -->
+
+    <delete id="deleteByArticleIds">
+        DELETE FROM favorite
+        WHERE article_id IN
+        <foreach collection="articleIds" item="articleId" open="(" separator="," close=")">
+            #{articleId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteByUserIds">
+        DELETE FROM favorite
+        WHERE user_id IN
+        <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+            #{userId}
+        </foreach>
+    </delete>
+
+    <!-- 异常检测 -->
+
+    <select id="selectSuspiciousFavorites" resultType="java.util.HashMap">
+        SELECT
+            user_id,
+            COUNT(*) as favorite_count,
+            MIN(create_time) as first_favorite,
+            MAX(create_time) as last_favorite,
+            TIMESTAMPDIFF(MINUTE, MIN(create_time), MAX(create_time)) as time_span_minutes
+        FROM favorite
+        GROUP BY user_id
+        HAVING COUNT(*) > #{threshold}
+    </select>
+
+    <!--数据导出 -->
+
+    <select id="selectAllForExport" resultMap="BaseResultMap">
+        SELECT
+            f.id,
+            f.user_id,
+            f.article_id,
+            f.create_time,
+
+            a.id as article_detail_id,
+            a.title as article_title,
+            a.summary as article_summary,
+            a.view_count as article_view_count,
+            a.create_time as article_create_time,
+            a.status as article_status,
+            a.is_top as article_is_top,
+            a.category_id,
+
+            a.user_id as author_id,
+            u.username as author_name,
+            u.avatar as author_avatar
+        FROM favorite f
+                 INNER JOIN article a ON f.article_id = a.id
+                 INNER JOIN user u ON a.user_id = u.id
+        ORDER BY f.create_time DESC
+    </select>
+
+    <!-- 存储过程调用 -->
+
+    <select id="toggleFavorite" statementType="CALLABLE" resultType="java.util.HashMap">
+        {CALL toggle_article_favorite(
+                #{articleId, mode=IN, jdbcType=INTEGER},
+                #{userId, mode=IN, jdbcType=INTEGER}
+              )}
+    </select>
+
+    <select id="selectRecentFavorites" resultMap="BaseResultMap">
+        SELECT
+            f.id,
+            f.user_id,
+            f.article_id,
+            f.create_time,
+
+            a.id as article_detail_id,
+            a.title as article_title,
+            a.summary as article_summary,
+            a.view_count as article_view_count,
+            a.create_time as article_create_time,
+            a.status as article_status,
+            a.is_top as article_is_top,
+
+            a.user_id as author_id,
+            u.username as author_name,
+            u.avatar as author_avatar
+        FROM favorite f
+                 INNER JOIN article a ON f.article_id = a.id
+                 INNER JOIN user u ON a.user_id = u.id
+        WHERE f.user_id = #{userId}
+          AND a.status = 1
+        ORDER BY f.create_time DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="socialplatform.backend.backend.Mapper.ArticleTagMapper">
+    <resultMap id="BaseResultMap" type="socialplatform.backend.backend.model.ArticleTag">
+        <id column="id" property="id"/>
+        <result column="article_id" property="articleId"/>
+        <result column="tag_id" property="tagId"/>
+        <result column="create_time" property="createTime"/>
+
+    </resultMap>
+
+    <!--关联管理-->
+    <insert id="insert" parameterType="map" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO article_tag(article_id, tag_id)
+        VALUES (#{articleId},#{tagId})
+    </insert>
+    <insert id="batchInsert" parameterType="map">
+        <if test="tagIds != null and tagIds.size()>0">
+            INSERT IGNORE INTO article_tag(article_id, tag_id)
+            VALUES
+            <foreach collection="tagIds" item="tagId" separator=",">
+                (#{articleId},#{tagId})
+            </foreach>
+        </if>
+    </insert>
+    <select id="selectByArticleId" resultMap="BaseResultMap">
+        SELECT id, article_id, tag_id, create_time
+        FROM article_tag
+        WHERE article_id = #{articleId}
+        ORDER BY create_time DESC
+    </select>
+    <select id="selectByTagId" resultMap="BaseResultMap">
+        SELECT id, article_id, tag_id, create_time
+        FROM article_tag
+        WHERE tag_id = #{tagId}
+        ORDER BY create_time DESC
+    </select>
+    <select id="exists" resultMap="boolean">
+        SELECT COUNT(1)>0
+        FROM article_tag
+        WHERE article_id=#{articleId} AND tag_id=#{tagId}
+    </select>
+    <delete id="deleteByArticleId">
+        DELETE FROM article_tag WHERE article_id = #{articleId}
+    </delete>
+    <delete id="deleteByTagId">
+        DELETE FROM article_tag WHERE tag_id = #{tagId}
+    </delete>
+    <delete id="batchDeleteByTagIds" parameterType="map">
+        <if test="tagIds != null and tagIds.size()>0">
+            DELETE FROM article_tag
+            WHERE tag_id IN
+        </if>
+    </delete>
+
+    <!--查询管理-->
+    <select id="selectArticleIdByTagId" resultMap="BaseResultMap">
+        SELECT DISTINCT article_id
+        FROM article_tag
+        WHERE tag_id = #{tagId}
+        ORDER BY create_time DESC
+    </select>
+    <select id="selectTagIdByArticleId" resultMap="BaseResultMap">
+        SELECT tag_id
+        FROM article_tag
+        WHERE article_id = #{articleId}
+        ORDER BY create_time DESC
+    </select>
+
+
+
+</mapper>
