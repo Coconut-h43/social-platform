@@ -1,7 +1,7 @@
-package socialplatform.backend.backend.service.vo;  // ✅ vo包
+package socialplatform.backend.backend.service.vo;
 
 import lombok.Data;
-import socialplatform.backend.backend.model.User;  // 导入model
+import socialplatform.backend.backend.model.User;
 import java.util.Date;
 
 @Data
